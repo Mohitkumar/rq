@@ -6,6 +6,8 @@ import com.github.rq.RedisOps;
 import com.github.rq.RetryableException;
 import com.github.rq.queue.Queue;
 import com.github.rq.queue.RedisQueue;
+import com.github.rq.retry.Retrier;
+import com.github.rq.retry.RetryPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,8 +20,6 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
     private static  final Logger LOGGER = LoggerFactory.getLogger(MultiThreadConsumer.class);
 
     private static final long MAX_WAIT_MILLIS_WHEN_STOPPING_THREADS = 30000;
-
-    private boolean initialized = false;
 
 
     private RedisOps redisOps;
@@ -34,13 +34,17 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
 
     private List<Queue<T>> redisQueues;
 
-    public MultiThreadConsumer(RedisOps redisOps, int numThreads, ConsumerListener<T> listener, Queue<T> queue) {
+    private Retrier<T> retrier;
+
+    public MultiThreadConsumer(RedisOps redisOps, int numThreads,
+                               ConsumerListener<T> listener, Queue<T> queue, RetryPolicy retryPolicy) {
         this.redisOps = redisOps;
         this.numThreads = numThreads;
         this.listener = listener;
         this.queue = queue;
         consumerThreads = new ArrayList<>(numThreads);
         redisQueues = new ArrayList<>(numThreads);
+        retrier = new Retrier<>(retryPolicy,new RedisQueue<>(redisOps, queue.getMessageSerializer(), "retry"),queue);
     }
 
     public void init(){
@@ -49,7 +53,6 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
         for (int i = 0; i < numThreads; i++) {
             String consumerName = redisOps.registerConsumer(this.queue.getName(), String.valueOf(i));
             RedisQueue<T> redisQueue = new RedisQueue<>(redisOps, queue.getMessageSerializer(), consumerName);
-            redisQueue.inferType(listener.getClass(), ConsumerListener.class);
             redisQueues.add(redisQueue);
             newConsumers.add(consumerName);
         }
@@ -60,30 +63,31 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
             redisOps.copyList(this.queue.getName(),oldConsumer);
             redisOps.removeConsumer(this.queue.getName(),oldConsumer);
         }
-        initialized = true;
     }
 
     @Override
     public void start() {
-        if(!initialized){
-            throw new RuntimeException("can not start consumers, not initialized...");
-        }
+        init();
         new Thread(new TransferThread(redisQueues, queue)).start();
 
         for (int i = 0; i < redisQueues.size(); i++) {
+            String consumerName = String.format("consumer-%s-%s", queue.getName(), i);
             Queue<T> transferQueue = redisQueues.get(i);
             ConsumerThread consumerThread =  new ConsumerThread(() ->{
                 Message<T> message = transferQueue.dequeue();
                 if(message != null){
                     try {
-                        listener.onMessage(message);
+                        listener.onMessage(message, consumerName);
                     } catch (RetryableException e) {
                         LOGGER.error("retry exception retrying message",e);
-                        this.queue.enqueue(message);
+                        boolean retry = retrier.retry(message);
+                        if(!retry){
+                            LOGGER.info("retry limit exhausted for message {}", message);
+                        }
                     }
                 }
             });
-            consumerThread.setName(String.format("consumer-%s-%s", queue.getName(), i));
+            consumerThread.setName(consumerName);
             consumerThread.start();
             consumerThreads.add(consumerThread);
 

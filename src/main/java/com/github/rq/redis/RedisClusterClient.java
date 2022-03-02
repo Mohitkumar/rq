@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisCluster;
+import redis.clients.jedis.resps.KeyedZSetElement;
 
 import java.util.HashSet;
 import java.util.List;
@@ -21,7 +22,7 @@ public class RedisClusterClient implements IRedisClient{
     private int maxConnections = 500;
     private int maxWait = 10000;
 
-    public void configure(String[] hostUrls, String password) throws Exception {
+    public  RedisClusterClient(String[] hostUrls, String password) {
         Set<HostAndPort> clusterNodes = new HashSet<>(hostUrls.length);
         for (String each : hostUrls) {
             String[] x = each.split(":");
@@ -46,23 +47,23 @@ public class RedisClusterClient implements IRedisClient{
     }
 
     @Override
-    public void blockingRightPopAndLeftPush(String from, String to, int timeout) {
+    public void brpoplpush(String from, String to, int timeout) {
         jedisCluster.brpoplpush(from, to, timeout);
     }
 
     @Override
-    public String blockingRightPop(String queue, int timeout) {
+    public String brpop(String queue, int timeout) {
         List<String> brpop = jedisCluster.brpop(timeout, queue);
         return brpop.isEmpty() ? null : brpop.get(1);
     }
 
     @Override
-    public void addToSet(String key, String... members) {
+    public void sadd(String key, String... members) {
         jedisCluster.sadd(key, members);
     }
 
     @Override
-    public void removeFromSet(String key, String... members) {
+    public void srem(String key, String... members) {
         jedisCluster.srem(key, members);
     }
 
@@ -79,5 +80,20 @@ public class RedisClusterClient implements IRedisClient{
     @Override
     public void delete(String... keys) {
         jedisCluster.del(keys);
+    }
+
+    @Override
+    public String bzpopmax(String queue, int timeout) {
+        KeyedZSetElement elem = jedisCluster.bzpopmax(timeout, queue);
+        return elem.getElement();
+    }
+
+    @Override
+    public void zadd(String queue, String entry, long score) {
+        jedisCluster.zadd(queue,score, entry);
+    }
+    @Override
+    public List<String> zRange(String key, long start, long end) {
+        return jedisCluster.zrange(key, start, end);
     }
 }

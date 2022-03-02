@@ -1,30 +1,31 @@
 package com.github.rq.serializer;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.rq.Message;
 import com.github.rq.SerializationException;
 
 import java.io.IOException;
 
-public class JacksonMessageSerializer implements MessageSerializer{
+public class JacksonMessageSerializer<T> implements MessageSerializer<T>{
     private ObjectMapper mapper = new ObjectMapper();
 
     @Override
-    public String serialize(Object o) {
+    public String serialize(Message<T> m) {
         try {
-            return mapper.writeValueAsString(o);
+            return mapper.writeValueAsString(m);
         } catch (IOException e) {
             throw new SerializationException("Could not serialize object using Jackson.", e);
         }
     }
 
     @Override
-    public <T> T deserialize(String payload, Class<T> type) {
+    public Message<T> deserialize(String payload) {
         if (payload == null) {
             return null;
         }
-
         try {
-            return mapper.readValue(payload, type);
+            return mapper.readValue(payload, new TypeReference<Message<T>>() {});
         } catch (IOException e) {
             throw new SerializationException("Could not serialize object using Jackson.", e);
         }

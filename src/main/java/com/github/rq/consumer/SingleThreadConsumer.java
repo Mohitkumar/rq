@@ -8,7 +8,7 @@ import com.github.rq.queue.RedisQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SingleThreadConsumer<T> implements Consumer {
+public class SingleThreadConsumer<T> implements Consumer<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(SingleThreadConsumer.class);
 
@@ -27,18 +27,11 @@ public class SingleThreadConsumer<T> implements Consumer {
         while(start){
             Message<T> message = this.queue.dequeue();
             try {
-                listener.onMessage(message);
+                listener.onMessage(message, "single");
             } catch (RetryableException e) {
                 logger.error("retry exception retrying message",e);
                 this.queue.enqueue(message);
             }
-        }
-    }
-
-    @Override
-    public void init() {
-        if(this.queue instanceof RedisQueue){
-            ((RedisQueue)this.queue).inferType(listener.getClass(), ConsumerListener.class);
         }
     }
 }

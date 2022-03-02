@@ -1,7 +1,9 @@
 package com.github.rq.serializer;
 
-public interface MessageSerializer {
-    String serialize(Object o);
+import com.github.rq.Message;
 
-    <T> T deserialize(String message, Class<T> type);
+public interface MessageSerializer<T> {
+    String serialize(Message<T> m);
+
+    Message<T> deserialize(String message);
 }

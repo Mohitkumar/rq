@@ -7,39 +7,48 @@ import java.util.List;
 import java.util.Set;
 
 public class RedisOps {
-    private String nameSpace;
+    private final String nameSpace;
 
-    private IRedisClient redisClient;
+    private final IRedisClient redisClient;
 
-    private static int TIMEOUT = 0;
+    private static final int TIMEOUT = 0;
 
     public RedisOps(String nameSpace, IRedisClient redisClient) {
         this.nameSpace = nameSpace;
         this.redisClient = redisClient;
     }
 
-    public void addMessageToQueue(String queue, String message){
+    public void leftPush(String queue, String message){
         redisClient.leftPush(String.format("%s.%s",nameSpace,queue), message);
     }
 
+    public void zadd(String queue, String message, long priority){
+        redisClient.zadd(String.format("%s.%s",nameSpace,queue), message, priority);
+    }
+
     public void transferMessage(String fromQueue, String toQueue){
-        redisClient.blockingRightPopAndLeftPush(String.format("%s.%s",nameSpace,fromQueue),
+        redisClient.brpoplpush(String.format("%s.%s",nameSpace,fromQueue),
                 String.format("%s.%s",nameSpace,toQueue), TIMEOUT);
     }
 
     public String popMessage(String queue){
-        return redisClient.blockingRightPop(String.format("%s.%s",nameSpace,queue),TIMEOUT);
+        return redisClient.brpop(String.format("%s.%s",nameSpace,queue),TIMEOUT);
     }
+
+    public String bzpopmax(String queue){
+        return redisClient.bzpopmax(String.format("%s.%s",nameSpace,queue),TIMEOUT);
+    }
+
 
     public String registerConsumer(String queueName,String consumer){
         String consumeName = String.format("%s.%s.consumer.%s", nameSpace, queueName, consumer);
-        redisClient.addToSet(String.format("%s.%s.consumers",nameSpace, queueName),
+        redisClient.sadd(String.format("%s.%s.consumers",nameSpace, queueName),
                 consumeName);
         return consumeName;
     }
 
     public void removeConsumer(String queueName, String consumer){
-        redisClient.removeFromSet(String.format("%s.%s.consumers",nameSpace, queueName), consumer);
+        redisClient.srem(String.format("%s.%s.consumers",nameSpace, queueName), consumer);
     }
 
     public List<String> getConsumers(String queueName){

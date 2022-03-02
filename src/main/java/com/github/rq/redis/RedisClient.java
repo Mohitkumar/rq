@@ -3,6 +3,7 @@ package com.github.rq.redis;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.resps.Tuple;
 
 import java.util.Collections;
 import java.util.List;
@@ -14,15 +15,14 @@ public class RedisClient implements IRedisClient{
 
     protected JedisManager jedisManager;
 
-    public void configure(String host, int port) throws Exception {
+    public RedisClient(String host, int port) {
         this.jedisManager = new JedisManager(host, port);
-        logger.info("redis client: {} initialised ...", port);
     }
 
-    public void configure(String host, int port, String password) throws Exception {
+    public RedisClient(String host, int port, String password) {
         this.jedisManager = new JedisManager(host, port, password);
-        logger.info("redis client: {} initialised...", port);
     }
+
 
     @Override
     public void leftPush(String queue, String... entry) {
@@ -39,7 +39,38 @@ public class RedisClient implements IRedisClient{
         }
     }
 
-    public void blockingRightPopAndLeftPush(String from, String to, int timeout) {
+    @Override
+    public void zadd(String queue, String entry, long score) {
+        Jedis j = null;
+        try {
+            j = jedisManager.getConnection();
+            j.zadd(queue, score, entry);
+        } catch(Exception e) {
+            logger.error("could not left push ot queue: " + queue, e);
+        } finally {
+            if (j != null) {
+                jedisManager.returnConnection(j);
+            }
+        }
+    }
+    @Override
+    public String bzpopmax(String queue, int timeout) {
+        Jedis j = null;
+        try {
+            j = jedisManager.getConnection();
+            Tuple tuple = j.bzpopmax(timeout,queue);
+            return tuple.getElement();
+        } catch(Exception e) {
+            logger.error("could not left push ot queue: " + queue, e);
+        } finally {
+            if (j != null) {
+                jedisManager.returnConnection(j);
+            }
+        }
+        return null;
+    }
+
+    public void brpoplpush(String from, String to, int timeout) {
         Jedis j = null;
         try {
             j = jedisManager.getConnection();
@@ -53,7 +84,7 @@ public class RedisClient implements IRedisClient{
         }
     }
 
-    public String blockingRightPop(String queue, int timeout) {
+    public String brpop(String queue, int timeout) {
         Jedis j = null;
         try {
             j = jedisManager.getConnection();
@@ -69,7 +100,7 @@ public class RedisClient implements IRedisClient{
         return null;
     }
 
-    public void addToSet(String key, String... members) {
+    public void sadd(String key, String... members) {
         Jedis j = null;
         try {
             j = jedisManager.getConnection();
@@ -83,7 +114,7 @@ public class RedisClient implements IRedisClient{
         }
     }
 
-    public void removeFromSet(String key, String... members) {
+    public void srem(String key, String... members) {
         Jedis j = null;
         try {
             j = jedisManager.getConnection();
@@ -117,6 +148,21 @@ public class RedisClient implements IRedisClient{
         try {
             j = jedisManager.getConnection();
             return j.lrange(key, start, end);
+        } catch(Exception e) {
+            logger.error("could not do rightPopAndLeftPush", e);
+        } finally {
+            if (j != null) {
+                jedisManager.returnConnection(j);
+            }
+        }
+        return Collections.emptyList();
+    }
+
+    public List<String> zRange(String key, long start, long end) {
+        Jedis j = null;
+        try {
+            j = jedisManager.getConnection();
+            return j.zrangeByScore(key, start, end);
         } catch(Exception e) {
             logger.error("could not do rightPopAndLeftPush", e);
         } finally {

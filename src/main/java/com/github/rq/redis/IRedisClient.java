@@ -6,13 +6,13 @@ import java.util.Set;
 public interface IRedisClient {
     void leftPush(String queue, String... entry);
 
-    void blockingRightPopAndLeftPush(String from, String to, int timeout);
+    void brpoplpush(String from, String to, int timeout);
 
-    String blockingRightPop(String queue, int timeout);
+    String brpop(String queue, int timeout);
 
-    void addToSet(String key, String... members);
+    void sadd(String key, String... members);
 
-    void removeFromSet(String key, String... members);
+    void srem(String key, String... members);
 
     Set<String> sMembers(String key);
 
@@ -20,4 +20,9 @@ public interface IRedisClient {
 
     void delete(String... keys);
 
+    String bzpopmax(String queue, int timeout);
+
+    void zadd(String queue, String entry, long score);
+
+    List<String> zRange(String key, long start, long end);
 }

@@ -2,19 +2,18 @@ package com.github.rq.queue;
 
 
 import com.github.rq.Message;
-import com.github.rq.RedisOps;
 import com.github.rq.serializer.MessageSerializer;
 
 public class RedisQueue<T> implements Queue<T>{
 
-    private RedisOps redisOps;
+    private QueueOps queueOps;
 
-    private MessageSerializer messageSerializer;
+    private MessageSerializer<T> messageSerializer;
 
     private String queueName;
 
-    public RedisQueue(RedisOps redisOps, MessageSerializer messageSerializer, String queueName) {
-        this.redisOps = redisOps;
+    public RedisQueue(QueueOps queueOps, MessageSerializer<T> messageSerializer, String queueName) {
+        this.queueOps = queueOps;
         this.messageSerializer = messageSerializer;
         this.queueName = queueName;
     }
@@ -29,14 +28,19 @@ public class RedisQueue<T> implements Queue<T>{
     }
 
     @Override
+    public QueueOps getQueueOps() {
+        return queueOps;
+    }
+
+    @Override
     public void enqueue(Message<T> message) {
         String data = messageSerializer.serialize(message);
-        redisOps.leftPush(queueName, data);
+        queueOps.leftPush(queueName, data);
     }
 
     @Override
     public Message<T> dequeue() {
-        String data = redisOps.popMessage(queueName);
+        String data = queueOps.popMessage(queueName);
         if(data != null){
             return messageSerializer.deserialize(data);
         }
@@ -44,6 +48,6 @@ public class RedisQueue<T> implements Queue<T>{
     }
 
     public void transferTo(Queue<T> queue){
-        redisOps.transferMessage(queueName, queue.getName());
+        queueOps.transferMessage(queueName, queue.getName());
     }
 }

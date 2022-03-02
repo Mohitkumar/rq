@@ -2,7 +2,8 @@ package com.github.rq.consumer;
 
 import com.github.rq.ConsumerListener;
 import com.github.rq.Message;
-import com.github.rq.RedisOps;
+import com.github.rq.queue.QueueOps;
+import com.github.rq.queue.RedisOps;
 import com.github.rq.RetryableException;
 import com.github.rq.queue.Queue;
 import com.github.rq.queue.RedisQueue;
@@ -21,9 +22,6 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
 
     private static final long MAX_WAIT_MILLIS_WHEN_STOPPING_THREADS = 30000;
 
-
-    private RedisOps redisOps;
-
     private int numThreads;
 
     private ConsumerListener<T> listener;
@@ -36,23 +34,27 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
 
     private Retrier<T> retrier;
 
-    public MultiThreadConsumer(RedisOps redisOps, int numThreads,
+    private TransferThread transferThread;
+
+    private QueueOps queueOps;
+
+    public MultiThreadConsumer(int numThreads,
                                ConsumerListener<T> listener, Queue<T> queue, RetryPolicy retryPolicy) {
-        this.redisOps = redisOps;
         this.numThreads = numThreads;
         this.listener = listener;
         this.queue = queue;
         consumerThreads = new ArrayList<>(numThreads);
         redisQueues = new ArrayList<>(numThreads);
-        retrier = new Retrier<>(retryPolicy,new RedisQueue<>(redisOps, queue.getMessageSerializer(), "retry"),queue);
+        queueOps = queue.getQueueOps();
+        retrier = new Retrier<>(retryPolicy,new RedisQueue<>(queueOps, queue.getMessageSerializer(), "retry"),queue);
     }
 
     public void init(){
-        List<String> oldConsumers = redisOps.getConsumers(queue.getName());
+        List<String> oldConsumers = queueOps.getConsumers(queue.getName());
         List<String> newConsumers = new ArrayList<>();
         for (int i = 0; i < numThreads; i++) {
-            String consumerName = redisOps.registerConsumer(this.queue.getName(), String.valueOf(i));
-            RedisQueue<T> redisQueue = new RedisQueue<>(redisOps, queue.getMessageSerializer(), consumerName);
+            String consumerName = queueOps.registerConsumer(this.queue.getName(), String.valueOf(i));
+            RedisQueue<T> redisQueue = new RedisQueue<>(queueOps, queue.getMessageSerializer(), consumerName);
             redisQueues.add(redisQueue);
             newConsumers.add(consumerName);
         }
@@ -60,16 +62,17 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
 
         oldConsumers.removeAll(newConsumers);
         for (String oldConsumer : oldConsumers) {
-            redisOps.copyList(this.queue.getName(),oldConsumer);
-            redisOps.removeConsumer(this.queue.getName(),oldConsumer);
+            queueOps.copyList(this.queue.getName(),oldConsumer);
+            queueOps.removeConsumer(this.queue.getName(),oldConsumer);
         }
     }
 
     @Override
     public void start() {
         init();
-        new Thread(new TransferThread(redisQueues, queue)).start();
-
+        transferThread = new TransferThread(redisQueues, queue);
+        transferThread.start();
+        retrier.start();
         for (int i = 0; i < redisQueues.size(); i++) {
             String consumerName = String.format("consumer-%s-%s", queue.getName(), i);
             Queue<T> transferQueue = redisQueues.get(i);
@@ -79,7 +82,6 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
                     try {
                         listener.onMessage(message, consumerName);
                     } catch (RetryableException e) {
-                        LOGGER.error("retry exception retrying message",e);
                         boolean retry = retrier.retry(message);
                         if(!retry){
                             LOGGER.info("retry limit exhausted for message {}", message);
@@ -90,17 +92,18 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
             consumerThread.setName(consumerName);
             consumerThread.start();
             consumerThreads.add(consumerThread);
-
-            LOGGER.debug(String.format("Started message consumer thread [%s]", consumerThread.getName()));
+            LOGGER.debug("Started message consumer thread {}", consumerThread.getName());
         }
     }
 
 
     @Override
     public void stop() throws InterruptedException{
+        retrier.stop();
+        transferThread.stopRequested = true;
         try {
             for (ConsumerThread consumerThread : consumerThreads) {
-                LOGGER.debug(String.format("Stopping message consuming thread [%s]", consumerThread.getName()));
+                LOGGER.debug("Stopping message consuming thread {}", consumerThread.getName());
                 consumerThread.stopRequested = true;
             }
             waitForAllThreadsToTerminate();
@@ -140,13 +143,13 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
         }
     }
 
-    protected class TransferThread implements Runnable{
+    protected class TransferThread extends Thread{
 
         List<Queue<T>> redisQueues;
 
         private Queue<T> queue;
 
-        private boolean stop = false;
+        private boolean stopRequested = false;
 
         public TransferThread(List<Queue<T>> redisQueues, Queue<T> queue) {
             this.redisQueues = redisQueues;
@@ -157,7 +160,7 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
         public void run() {
 
             int i =0;
-            while(!stop){
+            while(!stopRequested && !isInterrupted()){
                 if(i == Integer.MAX_VALUE){
                     i = 0;
                 }

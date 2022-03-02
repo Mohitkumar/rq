@@ -5,11 +5,13 @@ import com.github.rq.queue.Queue;
 
 public class Retrier<T> {
 
-    private RetryPolicy retryPolicy;
+    private final RetryPolicy retryPolicy;
 
-    private Queue<T> retryQueue;
+    private final Queue<T> retryQueue;
 
-    private Queue<T> transferQueue;
+    private final Queue<T> transferQueue;
+
+    private RetrierThread retrierThread;
 
     public Retrier(RetryPolicy retryPolicy, Queue<T> retryQueue, Queue<T> transferQueue) {
         this.retryPolicy = retryPolicy;
@@ -27,17 +29,21 @@ public class Retrier<T> {
     }
 
     public void start(){
-        Thread t = new RetrierThread();
-        t.setName("retrier");
-        t.start();
+        retrierThread= new RetrierThread();
+        retrierThread.setName("retrier");
+        retrierThread.start();
+    }
+
+    public void stop(){
+        retrierThread.stopRequested = true;
     }
 
     class RetrierThread extends Thread{
-        private boolean stop = false;
+        private boolean stopRequested = false;
 
         @Override
         public void run() {
-            while(!stop){
+            while(!stopRequested && !isInterrupted()){
                 retryQueue.transferTo(transferQueue);
             }
         }

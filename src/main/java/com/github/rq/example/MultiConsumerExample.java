@@ -2,7 +2,8 @@ package com.github.rq.example;
 
 import com.github.rq.ConsumerListener;
 import com.github.rq.Message;
-import com.github.rq.RedisOps;
+import com.github.rq.queue.QueueOps;
+import com.github.rq.queue.RedisOps;
 import com.github.rq.RetryableException;
 import com.github.rq.consumer.Consumer;
 import com.github.rq.consumer.MultiThreadConsumer;
@@ -21,21 +22,26 @@ public class MultiConsumerExample {
     public static void main(String[] args) {
         IRedisClient client = new RedisClient("localhost",6379);
 
-        RedisOps redisOps = new RedisOps("example", client);
+        QueueOps redisOps = new RedisOps("example", client);
 
         MessageSerializer<Data>  serializer = new JacksonMessageSerializer<>();
         Queue<Data> queue = new RedisQueue<>(redisOps,serializer,"data-queue");
 
         Producer<Data> producer = new DefaultProducer<>(queue);
 
-        Consumer<Data> consumer = new MultiThreadConsumer<>(redisOps, 4,new DataListener(),queue, new SimpleRetryPolicy(3));
+        Consumer<Data> consumer = new MultiThreadConsumer<>(4, new DataListener(),queue, new SimpleRetryPolicy(1));
         consumer.start();
 
         new Thread(() ->{
-            for (int i = 0; i < 2000; i++) {
+            for (int i = 0; i < 1; i++) {
                 Data d = new Data();
                 d.setField1("field"+i);
                 d.setField2(i);
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
                 producer.submit(d);
             }
         }).start();
@@ -47,6 +53,7 @@ public class MultiConsumerExample {
         @Override
         public void onMessage(Message<Data> t, String consumerName) throws RetryableException {
             System.out.println(consumerName +"----"+t.getPayload());
+            throw new RetryableException("failed");
         }
     }
     static class Data{

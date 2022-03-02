@@ -7,6 +7,8 @@ public interface Queue<T> {
 
     String getName();
 
+    QueueOps getQueueOps();
+
     void enqueue(Message<T> message);
 
     Message<T> dequeue();

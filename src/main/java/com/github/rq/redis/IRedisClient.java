@@ -3,6 +3,9 @@ package com.github.rq.redis;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * It is a wrapper interface over the redis operations.
+ */
 public interface IRedisClient {
     void leftPush(String queue, String... entry);
 

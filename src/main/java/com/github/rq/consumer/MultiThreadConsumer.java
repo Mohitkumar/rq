@@ -17,6 +17,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * MultiThreadConsumer is capable of consuming the message from queue in multiple threads.
+ * It calls the provided ConsumerListener on the consumed message.
+ * @param <T>
+ */
 public class MultiThreadConsumer<T> implements Consumer<T>{
     private static  final Logger LOGGER = LoggerFactory.getLogger(MultiThreadConsumer.class);
 

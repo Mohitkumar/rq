@@ -4,6 +4,15 @@ package com.github.rq.queue;
 import com.github.rq.Message;
 import com.github.rq.serializer.MessageSerializer;
 
+/**
+ * <pre>
+ * Queue implementation backed by the redis List. It uses blocking redis operations to pop the message from queue.
+ * enqueue uses the rpush redis operation.
+ * dequeue uses the blpop to dequeue the message from queue and blocks until new message is available.
+ * transferTo uses the blpoprpush to atomically transfer the message from this queue to the queue provided in paramter
+ * </pre>
+ * @param <T>
+ */
 public class RedisQueue<T> implements Queue<T>{
 
     private QueueOps queueOps;
@@ -18,7 +27,7 @@ public class RedisQueue<T> implements Queue<T>{
         this.queueName = queueName;
     }
 
-    public MessageSerializer getMessageSerializer() {
+    public MessageSerializer<T> getMessageSerializer() {
         return messageSerializer;
     }
 

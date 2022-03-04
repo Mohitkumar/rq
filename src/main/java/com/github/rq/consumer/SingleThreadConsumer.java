@@ -34,6 +34,7 @@ public class SingleThreadConsumer<T> implements Consumer<T> {
         this.queue = queue;
         this.listener = listener;
 
+        this.queue.inferType(listener.getClass(), ConsumerListener.class);
         retrier = new Retrier<>(retryPolicy,new RedisQueue<>(queue.getQueueOps(), queue.getMessageSerializer(), "retry"),queue);
         consumerThread = new ConsumerThread(() ->{
             Message<T> message = this.queue.dequeue();

@@ -3,6 +3,7 @@ package com.github.rq.queue;
 
 import com.github.rq.Message;
 import com.github.rq.serializer.MessageSerializer;
+import com.github.rq.util.GenericUtil;
 
 /**
  * <pre>
@@ -20,6 +21,8 @@ public class RedisQueue<T> implements Queue<T>{
     private MessageSerializer<T> messageSerializer;
 
     private String queueName;
+
+    private Class<T> type;
 
     public RedisQueue(QueueOps queueOps, MessageSerializer<T> messageSerializer, String queueName) {
         this.queueOps = queueOps;
@@ -51,12 +54,16 @@ public class RedisQueue<T> implements Queue<T>{
     public Message<T> dequeue() {
         String data = queueOps.popMessage(queueName);
         if(data != null){
-            return messageSerializer.deserialize(data);
+            return messageSerializer.deserialize(data, this.type);
         }
         return null;
     }
 
     public void transferTo(Queue<T> queue){
         queueOps.transferMessage(queueName, queue.getName());
+    }
+
+    public void inferType(Class<?> clazz, Class<?> specificInterface) {
+        this.type = (Class<T>) GenericUtil.getGenericTypeOfInterface(clazz, specificInterface);
     }
 }

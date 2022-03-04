@@ -29,11 +29,12 @@ public class MultiConsumerExample {
 
         Producer<Data> producer = new DefaultProducer<>(queue);
 
-        Consumer<Data> consumer = new MultiThreadConsumer<>(4, new DataListener(),queue, new SimpleRetryPolicy(1));
+        Consumer<Data> consumer = new MultiThreadConsumer<>(4, new DataListener(),queue,
+                new SimpleRetryPolicy(2));
         consumer.start();
 
         new Thread(() ->{
-            for (int i = 0; i < 1; i++) {
+            for (int i = 0; i < 100; i++) {
                 Data d = new Data();
                 d.setField1("field"+i);
                 d.setField2(i);
@@ -53,7 +54,9 @@ public class MultiConsumerExample {
         @Override
         public void onMessage(Message<Data> t, String consumerName) throws RetryableException {
             System.out.println(consumerName +"----"+t.getPayload());
-            throw new RetryableException("failed");
+            if(t.getPayload().getField2() == 5){
+                throw new RetryableException("failed");
+            }
         }
     }
     static class Data{

@@ -1,10 +1,12 @@
 package com.github.rq.serializer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.rq.Message;
 import com.github.rq.SerializationException;
 
+import javax.xml.crypto.Data;
 import java.io.IOException;
 
 public class JacksonMessageSerializer<T> implements MessageSerializer<T>{
@@ -19,15 +21,16 @@ public class JacksonMessageSerializer<T> implements MessageSerializer<T>{
         }
     }
 
-    @Override
-    public Message<T> deserialize(String payload) {
+    public Message<T> deserialize(String payload, Class<T> clazz) {
         if (payload == null) {
             return null;
         }
         try {
-            return mapper.readValue(payload, new TypeReference<Message<T>>() {});
+            JavaType javaType = mapper.getTypeFactory()
+                    .constructParametricType(Message.class, clazz);
+            return mapper.readValue(payload, javaType);
         } catch (IOException e) {
-            throw new SerializationException("Could not serialize object using Jackson.", e);
+            throw new SerializationException("Could not deserialize object using Jackson.", e);
         }
     }
 }

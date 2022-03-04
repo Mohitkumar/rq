@@ -55,11 +55,13 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
     }
 
     public void init(){
+        queue.inferType(listener.getClass(), ConsumerListener.class);
         List<String> oldConsumers = queueOps.getConsumers(queue.getName());
         List<String> newConsumers = new ArrayList<>();
         for (int i = 0; i < numThreads; i++) {
             String consumerName = queueOps.registerConsumer(this.queue.getName(), String.valueOf(i));
             RedisQueue<T> redisQueue = new RedisQueue<>(queueOps, queue.getMessageSerializer(), consumerName);
+            redisQueue.inferType(listener.getClass(), ConsumerListener.class);
             redisQueues.add(redisQueue);
             newConsumers.add(consumerName);
         }

@@ -45,4 +45,6 @@ public interface Queue<T> {
      * @param queue
      */
     void transferTo(Queue<T> queue);
+
+    void inferType(Class<?> clazz, Class<?> specificInterface);
 }

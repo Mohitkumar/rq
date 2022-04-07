@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisCluster;
 import redis.clients.jedis.resps.KeyedZSetElement;
+import redis.clients.jedis.resps.Tuple;
 
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +56,12 @@ public class RedisClusterClient implements IRedisClient{
     public String brpop(String queue, int timeout) {
         List<String> brpop = jedisCluster.brpop(timeout, queue);
         return brpop.isEmpty() ? null : brpop.get(1);
+    }
+
+    @Override
+    public void bzpopMaxlpush(String from, String to, int timeout) {
+        Tuple tuple = jedisCluster.zpopmax(from);
+        jedisCluster.lpush(to, tuple.getElement());
     }
 
     @Override

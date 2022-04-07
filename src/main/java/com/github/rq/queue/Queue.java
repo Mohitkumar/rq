@@ -19,7 +19,7 @@ public interface Queue<T> {
      * Get the underlying QueueOps used for this queue
      * @return
      */
-    QueueOps getQueueOps();
+    RedisOps getRedisOps();
 
     /**
      * Enqueue the message in the queue

@@ -2,10 +2,9 @@ package com.github.rq.consumer;
 
 import com.github.rq.ConsumerListener;
 import com.github.rq.Message;
-import com.github.rq.queue.QueueOps;
-import com.github.rq.queue.RedisOps;
 import com.github.rq.RetryableException;
 import com.github.rq.queue.Queue;
+import com.github.rq.queue.RedisOps;
 import com.github.rq.queue.RedisQueue;
 import com.github.rq.retry.Retrier;
 import com.github.rq.retry.RetryPolicy;
@@ -41,7 +40,7 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
 
     private TransferThread transferThread;
 
-    private QueueOps queueOps;
+    private RedisOps redisOps;
 
     public MultiThreadConsumer(int numThreads,
                                ConsumerListener<T> listener, Queue<T> queue, RetryPolicy retryPolicy) {
@@ -50,17 +49,17 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
         this.queue = queue;
         consumerThreads = new ArrayList<>(numThreads);
         redisQueues = new ArrayList<>(numThreads);
-        queueOps = queue.getQueueOps();
-        retrier = new Retrier<>(retryPolicy,new RedisQueue<>(queueOps, queue.getMessageSerializer(), "retry"),queue);
+        redisOps = queue.getRedisOps();
+        retrier = new Retrier<>(retryPolicy,new RedisQueue<>(redisOps, queue.getMessageSerializer(), "retry"),queue);
     }
 
     public void init(){
         queue.inferType(listener.getClass(), ConsumerListener.class);
-        List<String> oldConsumers = queueOps.getConsumers(queue.getName());
+        List<String> oldConsumers = redisOps.getConsumers(queue.getName());
         List<String> newConsumers = new ArrayList<>();
         for (int i = 0; i < numThreads; i++) {
-            String consumerName = queueOps.registerConsumer(this.queue.getName(), String.valueOf(i));
-            RedisQueue<T> redisQueue = new RedisQueue<>(queueOps, queue.getMessageSerializer(), consumerName);
+            String consumerName = redisOps.registerConsumer(this.queue.getName(), String.valueOf(i));
+            RedisQueue<T> redisQueue = new RedisQueue<>(redisOps, queue.getMessageSerializer(), consumerName);
             redisQueue.inferType(listener.getClass(), ConsumerListener.class);
             redisQueues.add(redisQueue);
             newConsumers.add(consumerName);
@@ -69,8 +68,8 @@ public class MultiThreadConsumer<T> implements Consumer<T>{
 
         oldConsumers.removeAll(newConsumers);
         for (String oldConsumer : oldConsumers) {
-            queueOps.copyList(this.queue.getName(),oldConsumer);
-            queueOps.removeConsumer(this.queue.getName(),oldConsumer);
+            redisOps.copyList(this.queue.getName(),oldConsumer);
+            redisOps.removeConsumer(this.queue.getName(),oldConsumer);
         }
     }
 

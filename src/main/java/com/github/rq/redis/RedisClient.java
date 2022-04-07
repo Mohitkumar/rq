@@ -3,6 +3,9 @@ package com.github.rq.redis;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Response;
+import redis.clients.jedis.Transaction;
+import redis.clients.jedis.resps.KeyedZSetElement;
 import redis.clients.jedis.resps.Tuple;
 
 import java.util.Collections;
@@ -46,7 +49,7 @@ public class RedisClient implements IRedisClient{
             j = jedisManager.getConnection();
             j.zadd(queue, score, entry);
         } catch(Exception e) {
-            logger.error("could not left push ot queue: " + queue, e);
+            logger.error("could not left push to queue: " + queue, e);
         } finally {
             if (j != null) {
                 jedisManager.returnConnection(j);
@@ -75,6 +78,21 @@ public class RedisClient implements IRedisClient{
         try {
             j = jedisManager.getConnection();
             j.brpoplpush(from, to, timeout);
+        } catch(Exception e) {
+            logger.error("could not do rightPopAndLeftPush", e);
+        } finally {
+            if (j != null) {
+                jedisManager.returnConnection(j);
+            }
+        }
+    }
+
+    public void bzpopMaxlpush(String from, String to, int timeout) {
+        Jedis j = null;
+        try {
+            j = jedisManager.getConnection();
+            KeyedZSetElement zSetElement = j.bzpopmax(timeout, from);
+            j.lpush(to, zSetElement.getElement());
         } catch(Exception e) {
             logger.error("could not do rightPopAndLeftPush", e);
         } finally {

@@ -2,7 +2,6 @@ package com.github.rq.example;
 
 import com.github.rq.ConsumerListener;
 import com.github.rq.Message;
-import com.github.rq.queue.QueueOps;
 import com.github.rq.queue.RedisOps;
 import com.github.rq.RetryableException;
 import com.github.rq.consumer.Consumer;
@@ -22,7 +21,7 @@ public class MultiConsumerExample {
     public static void main(String[] args) {
         IRedisClient client = new RedisClient("localhost",6379);
 
-        QueueOps redisOps = new RedisOps("example", client);
+        RedisOps redisOps = new RedisOps("example", client);
 
         MessageSerializer<Data>  serializer = new JacksonMessageSerializer<>();
         Queue<Data> queue = new RedisQueue<>(redisOps,serializer,"data-queue");

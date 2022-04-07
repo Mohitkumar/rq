@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-public class RedisOps implements QueueOps {
+public class RedisOps {
     private final String nameSpace;
 
     private final IRedisClient redisClient;
@@ -18,23 +18,19 @@ public class RedisOps implements QueueOps {
         this.redisClient = redisClient;
     }
 
-    @Override
-    public void leftPush(String queue, String message){
+    public void pushMessage(String queue, String message){
         redisClient.leftPush(String.format("%s.%s",nameSpace,queue), message);
     }
 
-    @Override
     public void transferMessage(String fromQueue, String toQueue){
         redisClient.brpoplpush(String.format("%s.%s",nameSpace,fromQueue),
                 String.format("%s.%s",nameSpace,toQueue), TIMEOUT);
     }
 
-    @Override
     public String popMessage(String queue){
         return redisClient.brpop(String.format("%s.%s",nameSpace,queue),TIMEOUT);
     }
 
-    @Override
     public String registerConsumer(String queueName, String consumer){
         String consumeName = String.format("%s.%s.consumer.%s", nameSpace, queueName, consumer);
         redisClient.sadd(String.format("%s.%s.consumers",nameSpace, queueName),
@@ -42,12 +38,10 @@ public class RedisOps implements QueueOps {
         return consumeName;
     }
 
-    @Override
     public void removeConsumer(String queueName, String consumer){
         redisClient.srem(String.format("%s.%s.consumers",nameSpace, queueName), consumer);
     }
 
-    @Override
     public List<String> getConsumers(String queueName){
         Set<String> members = redisClient.sMembers(String.format("%s.%s.consumers", nameSpace, queueName));
         if(members != null){
@@ -56,7 +50,6 @@ public class RedisOps implements QueueOps {
         return new ArrayList<>();
     }
 
-    @Override
     public void copyList(String to, String from){
         List<String> values = redisClient.lRange(from, 0, -1);
         String[] valuesArr = values.toArray(new String[values.size()]);

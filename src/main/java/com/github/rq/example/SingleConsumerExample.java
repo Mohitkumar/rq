@@ -5,7 +5,6 @@ import com.github.rq.consumer.SingleThreadConsumer;
 import com.github.rq.producer.DefaultProducer;
 import com.github.rq.producer.Producer;
 import com.github.rq.queue.Queue;
-import com.github.rq.queue.QueueOps;
 import com.github.rq.queue.RedisOps;
 import com.github.rq.queue.RedisQueue;
 import com.github.rq.redis.IRedisClient;
@@ -18,7 +17,7 @@ public class SingleConsumerExample {
     public static void main(String[] args) {
         IRedisClient client = new RedisClient("localhost",6379);
 
-        QueueOps redisOps = new RedisOps("single", client);
+        RedisOps redisOps = new RedisOps("single", client);
 
         MessageSerializer<Data> serializer = new JacksonMessageSerializer<>();
         Queue<Data> queue = new RedisQueue<>(redisOps,serializer,"queue");

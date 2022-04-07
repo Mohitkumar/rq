@@ -16,16 +16,16 @@ import com.github.rq.util.GenericUtil;
  */
 public class RedisQueue<T> implements Queue<T>{
 
-    private QueueOps queueOps;
+    protected RedisOps redisOps;
 
-    private MessageSerializer<T> messageSerializer;
+    protected MessageSerializer<T> messageSerializer;
 
-    private String queueName;
+    protected String queueName;
 
-    private Class<T> type;
+    protected Class<T> type;
 
-    public RedisQueue(QueueOps queueOps, MessageSerializer<T> messageSerializer, String queueName) {
-        this.queueOps = queueOps;
+    public RedisQueue(RedisOps queueOps, MessageSerializer<T> messageSerializer, String queueName) {
+        this.redisOps = queueOps;
         this.messageSerializer = messageSerializer;
         this.queueName = queueName;
     }
@@ -40,19 +40,19 @@ public class RedisQueue<T> implements Queue<T>{
     }
 
     @Override
-    public QueueOps getQueueOps() {
-        return queueOps;
+    public RedisOps getRedisOps() {
+        return redisOps;
     }
 
     @Override
     public void enqueue(Message<T> message) {
         String data = messageSerializer.serialize(message);
-        queueOps.leftPush(queueName, data);
+        redisOps.pushMessage(queueName, data);
     }
 
     @Override
     public Message<T> dequeue() {
-        String data = queueOps.popMessage(queueName);
+        String data = redisOps.popMessage(queueName);
         if(data != null){
             return messageSerializer.deserialize(data, this.type);
         }
@@ -60,7 +60,7 @@ public class RedisQueue<T> implements Queue<T>{
     }
 
     public void transferTo(Queue<T> queue){
-        queueOps.transferMessage(queueName, queue.getName());
+        redisOps.transferMessage(queueName, queue.getName());
     }
 
     public void inferType(Class<?> clazz, Class<?> specificInterface) {

@@ -20,4 +20,5 @@ public class DefaultProducer<T> implements Producer<T> {
         Message<T> m = new Message<>(t);
         this.queue.enqueue(m);
     }
+
 }

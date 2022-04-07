@@ -13,6 +13,8 @@ public interface IRedisClient {
 
     String brpop(String queue, int timeout);
 
+    void bzpopMaxlpush(String from, String to, int timeout);
+
     void sadd(String key, String... members);
 
     void srem(String key, String... members);

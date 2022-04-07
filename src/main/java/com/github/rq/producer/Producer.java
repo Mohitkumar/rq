@@ -5,6 +5,5 @@ package com.github.rq.producer;
  * @param <T>
  */
 public interface Producer<T> {
-
     void submit(T t);
 }
